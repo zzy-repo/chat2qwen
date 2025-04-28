@@ -16,6 +16,35 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def get_api_key() -> str:
+    """
+    从环境变量获取API密钥
+    
+    Returns:
+        str: API密钥
+        
+    Raises:
+        ValueError: 当API密钥未设置时抛出
+    """
+    # 首先尝试从环境变量直接获取
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    
+    # 如果环境变量中没有，再尝试从.env文件加载
+    if not api_key:
+        # 检查.env文件是否存在
+        if os.path.exists(".env"):
+            load_dotenv()
+            api_key = os.getenv("DASHSCOPE_API_KEY")
+    
+    if not api_key:
+        raise ValueError(
+            "未找到API密钥。请通过以下方式之一设置：\n"
+            "1. 设置环境变量 DASHSCOPE_API_KEY\n"
+            "2. 在项目根目录创建.env文件并添加 DASHSCOPE_API_KEY=your_key"
+        )
+    
+    return api_key
+
 class ImageProcessor:
     """图像处理器类，用于协调识别和分析流程"""
     
@@ -35,6 +64,10 @@ class ImageProcessor:
             debug: 是否启用调试模式
         """
         self.debug = debug
+        
+        # 如果没有提供api_key，则从环境变量获取
+        if api_key is None:
+            api_key = get_api_key()
         
         # 初始化识别器和分析器
         self.recognizer = ImageRecognizer(
@@ -147,41 +180,35 @@ class ImageProcessor:
 
 def main():
     """主函数"""
-    # 加载环境变量
-    load_dotenv()
-    
-    # 从环境变量获取API密钥
-    api_key = os.getenv("DASHSCOPE_API_KEY")
-    if not api_key:
-        logger.error("未找到API密钥，请确保.env文件中包含DASHSCOPE_API_KEY")
-        return
-    
-    # 设置参数
-    input_path = "input/image.png"  # 输入图片路径
-    output_dir = "output"           # 输出目录
-    output_format = "json"          # 输出格式：json 或 txt
-    recognition_model = "qwen-vl-max"  # 识别模型名称
-    analysis_model = "qwen-max"     # 分析模型名称
-    base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"  # API基础URL
-    debug = True                    # 是否启用调试模式
-    stream = False                   # 是否使用流式输出
-    
-    # 自定义提示词（可选）
-    recognition_prompt = """
-    请以分层结构输出表格内容。每一层代表一个单元格合并区域或单元项，采用缩进或分组表示层级关系。附加必要的行合并/列合并说明，但保持语义连贯。禁止碎片化输出，不可遗漏任何单元格信息。
-    """
-    
-    # 注意：这里的 {recognition_result} 是一个占位符，会在运行时被替换
-    analysis_prompt = """
-    请将报价单内容整理成结构化的表格形式，按照⼚家、品种、材质、规格、价格、供应商依次排列，
-    ⼚家包括：敬业、承钢、⾸钢⻓治、河钢、宁钢，等⼚家
-    品种包括：螺纹、盘钢、圆钢、线材，等品种
-    
-    图像识别结果如下：
-    {recognition_result}
-    """
-    
     try:
+        # 获取API密钥
+        api_key = get_api_key()
+        
+        # 设置参数
+        input_path = "input/image.png"  # 输入图片路径
+        output_dir = "output"           # 输出目录
+        output_format = "json"          # 输出格式：json 或 txt
+        recognition_model = "qwen-vl-max"  # 识别模型名称
+        analysis_model = "qwen-max"     # 分析模型名称
+        base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"  # API基础URL
+        debug = True                    # 是否启用调试模式
+        stream = False                   # 是否使用流式输出
+        
+        # 自定义提示词（可选）
+        recognition_prompt = """
+        请以分层结构输出表格内容。每一层代表一个单元格合并区域或单元项，采用缩进或分组表示层级关系。附加必要的行合并/列合并说明，但保持语义连贯。禁止碎片化输出，不可遗漏任何单元格信息。
+        """
+        
+        # 注意：这里的 {recognition_result} 是一个占位符，会在运行时被替换
+        analysis_prompt = """
+        请将报价单内容整理成结构化的表格形式，按照⼚家、品种、材质、规格、价格、供应商依次排列，
+        ⼚家包括：敬业、承钢、⾸钢⻓治、河钢、宁钢，等⼚家
+        品种包括：螺纹、盘钢、圆钢、线材，等品种
+        
+        图像识别结果如下：
+        {recognition_result}
+        """
+        
         # 初始化图像处理器
         processor = ImageProcessor(
             api_key=api_key,

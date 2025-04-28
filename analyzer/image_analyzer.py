@@ -50,10 +50,13 @@ class ImageAnalyzer:
 
     def _load_env(self, api_key: Optional[str] = None) -> None:
         """加载环境变量和API密钥"""
-        if not load_dotenv():
-            logger.warning("无法加载.env文件，将使用提供的API密钥")
-        
-        self.api_key = api_key or os.getenv("DASHSCOPE_API_KEY")
+        # 如果提供了api_key，直接使用
+        if api_key:
+            self.api_key = api_key
+            return
+            
+        # 否则从环境变量获取
+        self.api_key = os.getenv("DASHSCOPE_API_KEY")
         if not self.api_key:
             raise ValueError("API密钥未设置，请提供api_key参数或设置DASHSCOPE_API_KEY环境变量")
 
