@@ -1,7 +1,6 @@
 import os
 import base64
 from pathlib import Path
-from dotenv import load_dotenv
 from openai import OpenAI
 import logging
 import json

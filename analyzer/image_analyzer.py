@@ -1,10 +1,8 @@
 import os
 import json
 import logging
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, Optional, Union
 from openai import OpenAI
-from dotenv import load_dotenv
 
 # 配置日志
 logging.basicConfig(
