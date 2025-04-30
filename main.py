@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
 from dotenv import load_dotenv
 import json
 
@@ -43,6 +43,48 @@ def get_api_key() -> str:
         )
     
     return api_key
+
+def parse_analysis_result(analysis_result: str) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
+    """
+    解析分析结果为JSON格式
+    
+    Args:
+        analysis_result: 分析结果字符串
+        
+    Returns:
+        Union[List[Dict[str, Any]], Dict[str, Any]]: 解析后的JSON数据
+    """
+    try:
+        # 尝试直接解析JSON
+        parsed = json.loads(analysis_result)
+        return parsed
+    except json.JSONDecodeError:
+        # 如果解析失败，返回原始结果
+        logger.warning("无法解析分析结果为JSON格式")
+        return {"raw_result": analysis_result}
+
+def print_analysis_result(result: Union[List[Dict[str, Any]], Dict[str, Any]]) -> None:
+    """
+    打印分析结果
+    
+    Args:
+        result: 分析结果
+    """
+    print("\n=== 分析结果 ===")
+    if isinstance(result, list):
+        # 如果是列表，打印每个项目
+        for i, item in enumerate(result, 1):
+            print(f"\n项目 {i}:")
+            print(json.dumps(item, ensure_ascii=False, indent=2))
+    elif isinstance(result, dict):
+        if "raw_result" in result:
+            # 如果是原始结果，直接打印
+            print(result["raw_result"])
+        else:
+            # 如果是字典，格式化打印
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print("无法识别的结果格式")
 
 def save_result(result: Dict[str, Any], output_dir: str, output_format: str = "json") -> None:
     """
@@ -103,8 +145,8 @@ def main():
         api_key = get_api_key()
         
         # 设置参数
-        output_dir = "output"           # 输出结果文件保存目录
-        output_format = "txt"          # 输出格式：json 或 txt
+        output_dir = "output"           # 输出目录
+        output_format = "json"          # 输出格式：json 或 txt
         recognition_model = "qwen-vl-max"  # 识别模型名称
         analysis_model = "qwen-max"     # 分析模型名称
         base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"  # API基础URL
@@ -128,7 +170,14 @@ def main():
         # 处理图片
         result = processor.process_image(image_url, stream=stream)
         
-        # 保存结果
+        # 解析分析结果
+        analysis_data = parse_analysis_result(result["analysis_result"])
+        
+        # 打印分析结果
+        print_analysis_result(analysis_data)
+        
+        # 保存完整结果
+        result["parsed_analysis"] = analysis_data
         save_result(result, output_dir, output_format)
             
     except Exception as e:
@@ -137,3 +186,6 @@ def main():
 
 if __name__ == "__main__":
     main() 
+
+
+# http://gme.gusen.steel56.com.cn/gdai/rukudan1.jpg
