@@ -2,3 +2,8 @@ python-dotenv>=1.1.0
 openai>=1.76.0
 Pillow>=11.2.1
 requests>=2.32.3
+langchain>=0.1.0
+langchain-core>=0.1.0
+langchain-openai>=0.0.5
+requests
+dotenv

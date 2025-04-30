@@ -1,0 +1,156 @@
+import base64
+from pathlib import Path
+from typing import Dict, Any, Optional, Union
+import logging
+import requests
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.prompts import ChatPromptTemplate
+
+from models.config import ModelConfig
+from prompts.image_recognition import IMAGE_RECOGNITION_TEMPLATE
+from prompts.analysis import ANALYSIS_TEMPLATE
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+class ImageProcessingChain:
+    """图像处理链"""
+    
+    def __init__(self, config: ModelConfig, debug: bool = True):
+        """
+        初始化图像处理链
+        
+        Args:
+            config: 模型配置
+            debug: 是否启用调试模式
+        """
+        self.config = config
+        self.debug = debug
+        
+        # 初始化模型
+        self.recognition_model = config.get_recognition_model()
+        self.analysis_model = config.get_analysis_model()
+        
+        # 初始化输出解析器
+        self.output_parser = StrOutputParser()
+        
+    def _download_image(self, image_url: str) -> bytes:
+        """
+        从URL下载图片到内存
+        
+        Args:
+            image_url: 图片URL
+            
+        Returns:
+            bytes: 图片二进制数据
+        """
+        try:
+            response = requests.get(image_url)
+            response.raise_for_status()
+            return response.content
+        except Exception as e:
+            logger.error(f"下载图片失败: {str(e)}")
+            raise
+            
+    def _encode_image(self, image_data: bytes) -> str:
+        """
+        将图片编码为Base64
+        
+        Args:
+            image_data: 图片二进制数据
+            
+        Returns:
+            str: Base64编码的图片数据
+        """
+        try:
+            return base64.b64encode(image_data).decode('utf-8')
+        except Exception as e:
+            logger.error(f"图片编码失败: {str(e)}")
+            raise
+            
+    def _create_recognition_chain(self):
+        """创建识别链"""
+        return (
+            RunnablePassthrough.assign(
+                image=lambda x: self._encode_image(x["image_data"])
+            )
+            | ChatPromptTemplate.from_messages([
+                ("system", "你是一个专业的图像分析助手，擅长详细描述图像内容。"),
+                ("human", [
+                    {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,{image}"}},
+                    {"type": "text", "text": IMAGE_RECOGNITION_TEMPLATE}
+                ])
+            ])
+            | self.recognition_model
+            | self.output_parser
+        )
+        
+    def _create_analysis_chain(self):
+        """创建分析链"""
+        return (
+            RunnablePassthrough.assign(
+                recognition_result=lambda x: x["recognition_result"]
+            )
+            | ChatPromptTemplate.from_template(ANALYSIS_TEMPLATE)
+            | self.analysis_model
+            | self.output_parser
+        )
+        
+    def process_image(self, image_url: str, stream: bool = False) -> Dict[str, Any]:
+        """
+        处理图片
+        
+        Args:
+            image_url: 图片URL
+            stream: 是否使用流式输出
+            
+        Returns:
+            Dict[str, Any]: 处理结果
+        """
+        try:
+            if self.debug:
+                logger.info(f"开始处理图片: {image_url}")
+                
+            # 下载图片到内存
+            image_data = self._download_image(image_url)
+            
+            # 创建识别链
+            recognition_chain = self._create_recognition_chain()
+            
+            # 执行识别
+            recognition_result = recognition_chain.invoke({"image_data": image_data})
+            
+            if self.debug:
+                logger.info("图像识别完成")
+                
+            # 创建分析链
+            analysis_chain = self._create_analysis_chain()
+            
+            # 执行分析
+            analysis_result = analysis_chain.invoke({"recognition_result": recognition_result})
+            
+            if self.debug:
+                logger.info("分析完成")
+                
+            # 返回结果
+            return {
+                "status": "success",
+                "image_url": image_url,
+                "recognition_result": recognition_result,
+                "analysis_result": analysis_result
+            }
+            
+        except Exception as e:
+            error_msg = f"处理图片时出现错误: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "status": "error",
+                "image_url": image_url,
+                "error": str(e)
+            } 
