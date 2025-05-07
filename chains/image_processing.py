@@ -7,16 +7,13 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
+import io
 
 from models.config import ModelConfig
 from prompts.image_recognition import IMAGE_RECOGNITION_TEMPLATE
 from prompts.analysis import ANALYSIS_TEMPLATE
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# 获取logger
 logger = logging.getLogger(__name__)
 
 class ImageProcessingChain:
@@ -102,12 +99,12 @@ class ImageProcessingChain:
             | self.output_parser
         )
         
-    def process_image(self, image_url: str, stream: bool = False) -> Dict[str, Any]:
+    def process_image(self, image_data: Union[str, bytes, io.BytesIO], stream: bool = False) -> Dict[str, Any]:
         """
         处理图片
         
         Args:
-            image_url: 图片URL
+            image_data: 图片URL、二进制数据或BytesIO对象
             stream: 是否使用流式输出
             
         Returns:
@@ -115,16 +112,29 @@ class ImageProcessingChain:
         """
         try:
             if self.debug:
-                logger.info(f"开始处理图片: {image_url}")
-                
-            # 下载图片到内存
-            image_data = self._download_image(image_url)
+                logger.info(f"开始处理图片: {image_data if isinstance(image_data, str) else '<binary data>'}")
+
+            # 处理不同类型的输入
+            if isinstance(image_data, str):
+                # 如果是URL，下载图片
+                if image_data.startswith(('http://', 'https://', 'file://')):
+                    image_bytes = self._download_image(image_data)
+                else:
+                    raise ValueError(f"不支持的URL格式: {image_data}")
+            elif isinstance(image_data, io.BytesIO):
+                # 如果是BytesIO对象，获取其值
+                image_bytes = image_data.getvalue()
+            elif isinstance(image_data, bytes):
+                # 如果已经是字节数据，直接使用
+                image_bytes = image_data
+            else:
+                raise ValueError(f"不支持的图片数据类型: {type(image_data)}")
             
             # 创建识别链
             recognition_chain = self._create_recognition_chain()
             
             # 执行识别
-            recognition_result = recognition_chain.invoke({"image_data": image_data})
+            recognition_result = recognition_chain.invoke({"image_data": image_bytes})
             
             if self.debug:
                 logger.info("图像识别完成")
@@ -141,7 +151,7 @@ class ImageProcessingChain:
             # 返回结果
             return {
                 "status": "success",
-                "image_url": image_url,
+                "image_url": image_data if isinstance(image_data, str) else None,
                 "recognition_result": recognition_result,
                 "analysis_result": analysis_result
             }
@@ -151,6 +161,6 @@ class ImageProcessingChain:
             logger.error(error_msg)
             return {
                 "status": "error",
-                "image_url": image_url,
+                "image_url": image_data if isinstance(image_data, str) else None,
                 "error": str(e)
             } 
