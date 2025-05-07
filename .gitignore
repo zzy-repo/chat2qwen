@@ -1,1 +1,6 @@
 .conda
+# 忽略input和output文件夹中的所有内容，但保留文件夹本身
+input/*
+!input/.gitkeep
+output/*
+!output/.gitkeep
