@@ -210,8 +210,10 @@ def process_local_image(processor: ImageProcessingChain, image_data: Union[str, 
     """
     try:
         if isinstance(image_data, str):
-            image_url = f"file://{os.path.abspath(image_data)}"
-            result = processor.process_image(image_url, stream=stream)
+            # 直接读取本地文件
+            with open(image_data, 'rb') as f:
+                image_bytes = f.read()
+            result = processor.process_image(image_bytes, stream=stream)
         else:
             img_byte_arr = io.BytesIO()
             image_data.save(img_byte_arr, format='PNG')
@@ -275,9 +277,11 @@ def main():
                         logger.error(result["error"])
                         continue
                     
+                    # 解析并打印分析结果
                     analysis_data = parse_analysis_result(result["analysis_result"])
                     print_analysis_result(analysis_data)
                     
+                    # 保存结果
                     result["parsed_analysis"] = analysis_data
                     save_result(result, "output", "json")
                 except Exception as e:
@@ -292,9 +296,11 @@ def main():
                 logger.error(result["error"])
                 return
             
+            # 解析并打印分析结果
             analysis_data = parse_analysis_result(result["analysis_result"])
             print_analysis_result(analysis_data)
             
+            # 保存结果
             result["parsed_analysis"] = analysis_data
             save_result(result, "output", "json")
             

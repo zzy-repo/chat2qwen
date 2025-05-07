@@ -134,7 +134,8 @@ class ImageProcessingChain:
             recognition_chain = self._create_recognition_chain()
             
             # 执行识别
-            recognition_result = recognition_chain.invoke({"image_data": image_bytes})
+            recognition_response = recognition_chain.invoke({"image_data": image_bytes})
+            recognition_result = recognition_response.content if hasattr(recognition_response, 'content') else recognition_response
             
             if self.debug:
                 logger.info("图像识别完成")
@@ -143,7 +144,8 @@ class ImageProcessingChain:
             analysis_chain = self._create_analysis_chain()
             
             # 执行分析
-            analysis_result = analysis_chain.invoke({"recognition_result": recognition_result})
+            analysis_response = analysis_chain.invoke({"recognition_result": recognition_result})
+            analysis_result = analysis_response.content if hasattr(analysis_response, 'content') else analysis_response
             
             if self.debug:
                 logger.info("分析完成")
