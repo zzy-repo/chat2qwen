@@ -6,3 +6,5 @@ output/*
 !output/.gitkeep
 /backup
 /logs
+/dist
+/chat2table.egg-info
