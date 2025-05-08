@@ -1,5 +1,4 @@
 import os
-import logging
 from typing import Dict, Any, Optional, List, Union, Tuple
 from dotenv import load_dotenv
 import json
@@ -12,21 +11,7 @@ import time
 
 from models.config import ModelConfig
 from chains.image_processing import ImageProcessingChain
-
-# 配置日志
-class CustomFormatter(logging.Formatter):
-    def format(self, record):
-        # 如果消息是二进制数据，替换为占位符
-        if isinstance(record.msg, bytes):
-            record.msg = "<binary data>"
-        return super().format(record)
-
-# 配置日志处理器
-handler = logging.StreamHandler()
-handler.setFormatter(CustomFormatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
-logger = logging.getLogger(__name__)
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+from utils.logger import logger
 
 def get_api_key() -> str:
     """
@@ -286,6 +271,7 @@ def main():
             
             if image_data_list:
                 # 批量处理所有图片
+                logger.info(f"已成功读取 {len(image_data_list)} 个文件，正在统一打包给大模型进行分析...")
                 result = processor.process_multiple_images(image_data_list, stream=False)
                 
                 if "error" in result:

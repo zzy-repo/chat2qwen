@@ -1,0 +1,17 @@
+2025-05-08 09:41:58 - chat2table - INFO - 在input文件夹中找到 2 个文件
+2025-05-08 09:41:58 - chat2table - INFO - 正在读取PDF第 1 页
+2025-05-08 09:41:58 - chat2table - INFO - 正在读取PDF第 2 页
+2025-05-08 09:41:58 - chat2table - INFO - 已成功读取 2 个文件，正在统一打包给大模型进行分析...
+2025-05-08 09:41:58 - chat2table - INFO - 开始批量处理 2 张图片
+2025-05-08 09:41:58 - chat2table - INFO - 正在处理第 1/2 张图片
+2025-05-08 09:41:58 - chat2table - INFO - 开始处理图片: <binary data>
+2025-05-08 09:41:58 - chat2table - INFO - 正在进行图片识别...
+2025-05-08 09:43:07 - chat2table - INFO - 在input文件夹中找到 2 个文件
+2025-05-08 09:43:07 - chat2table - INFO - 正在读取PDF第 1 页
+2025-05-08 09:43:07 - chat2table - INFO - 正在读取PDF第 2 页
+2025-05-08 09:43:07 - chat2table - INFO - 已成功读取 2 个文件，正在统一打包给大模型进行分析...
+2025-05-08 09:43:07 - chat2table - INFO - 开始批量处理 2 张图片
+2025-05-08 09:43:07 - chat2table - INFO - 正在读取第 1/2 张图片
+2025-05-08 09:43:07 - chat2table - INFO - 正在读取第 2/2 张图片
+2025-05-08 09:43:07 - chat2table - ERROR - 批量处理图片时出现错误: Single '{' encountered in format string
+2025-05-08 09:43:07 - chat2table - ERROR - Single '{' encountered in format string

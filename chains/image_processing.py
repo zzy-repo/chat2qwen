@@ -1,7 +1,6 @@
 import base64
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, List
-import logging
 import requests
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
@@ -12,9 +11,7 @@ import io
 from models.config import ModelConfig
 from prompts.image_recognition import IMAGE_RECOGNITION_TEMPLATE
 from prompts.analysis import ANALYSIS_TEMPLATE
-
-# 获取logger
-logger = logging.getLogger(__name__)
+from utils.logger import logger
 
 class ImageProcessingChain:
     """图像处理链"""
@@ -134,11 +131,12 @@ class ImageProcessingChain:
             recognition_chain = self._create_recognition_chain()
             
             # 执行识别
+            logger.info("正在进行图片识别...")
             recognition_response = recognition_chain.invoke({"image_data": image_bytes})
             recognition_result = recognition_response.content if hasattr(recognition_response, 'content') else recognition_response
             
             if self.debug:
-                logger.info("图像识别完成")
+                logger.info("图片识别完成，正在进行文字处理...")
                 
             # 创建分析链
             analysis_chain = self._create_analysis_chain()
@@ -209,6 +207,7 @@ class ImageProcessingChain:
             analysis_chain = self._create_analysis_chain()
             
             # 执行分析
+            logger.info("所有图片识别完成，正在进行文字处理...")
             analysis_response = analysis_chain.invoke({"recognition_result": combined_recognition})
             analysis_result = analysis_response.content if hasattr(analysis_response, 'content') else analysis_response
             

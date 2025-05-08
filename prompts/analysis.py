@@ -15,7 +15,7 @@ ANALYSIS_TEMPLATE = """
    - consignor_info：货主信息
    - warehouse_info：仓库信息
 
-2. 货物信息（goods_info）：
+2. 明细信息（detail_info）：
    - manufacturer：厂家（包括敬业、承钢、首钢长治、河钢、宁钢等）
    - variety：品种（包括螺纹、盘钢、圆钢、线材等）
    - material：材质
@@ -34,7 +34,7 @@ ANALYSIS_TEMPLATE = """
         "consignor_info": "辽宁成大钢铁贸易有限公司",
         "warehouse_info": "沈阳仓库"
     }},
-    "goods_info": [{{
+    "detail_info": [{{
         "manufacturer": "北台",
         "variety": "线材",
         "material": "Q235L",
