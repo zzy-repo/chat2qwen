@@ -34,14 +34,14 @@ ANALYSIS_TEMPLATE = """
         "consignor_info": "辽宁成大钢铁贸易有限公司",
         "warehouse_info": "沈阳仓库"
     }},
-    "goods_info": {{
+    "goods_info": [{{
         "manufacturer": "北台",
         "variety": "线材",
         "material": "Q235L",
         "specification": "Φ6.5",
         "price": "4200",
         "supplier": "辽宁成大钢铁贸易有限公司"
-    }}
+    }}]
 }}
 
 请注意：
