@@ -113,7 +113,6 @@ class ImageProcessingChain:
             logger.debug("=== 数据分析输入提示 ===")
             logger.debug(f"系统提示: {messages[0].content}")
             logger.debug(f"用户提示: {ANALYSIS_TEMPLATE}")
-            logger.debug(f"识别结果: {x['recognition_result']}")
             return messages
 
         return (
