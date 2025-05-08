@@ -264,29 +264,43 @@ def main():
         
         if input_files:
             logger.info(f"在input文件夹中找到 {len(input_files)} 个文件")
+            
+            # 收集所有图片数据
+            image_data_list = []
             for image_data, page_number in input_files:
                 try:
                     if isinstance(image_data, str):
-                        logger.info(f"正在处理文件: {image_data}")
+                        logger.info(f"正在读取文件: {image_data}")
+                        with open(image_data, 'rb') as f:
+                            image_bytes = f.read()
+                        image_data_list.append(image_bytes)
                     else:
-                        logger.info(f"正在处理PDF第 {page_number} 页")
-                    
-                    result = process_local_image(processor, image_data, page_number, stream=False)
-                    
-                    if "error" in result:
-                        logger.error(result["error"])
-                        continue
-                    
-                    # 解析并打印分析结果
-                    analysis_data = parse_analysis_result(result["analysis_result"])
-                    print_analysis_result(analysis_data)
-                    
-                    # 保存结果
-                    result["parsed_analysis"] = analysis_data
-                    save_result(result, "output", "json")
+                        logger.info(f"正在读取PDF第 {page_number} 页")
+                        img_byte_arr = io.BytesIO()
+                        image_data.save(img_byte_arr, format='PNG')
+                        img_byte_arr.seek(0)
+                        image_data_list.append(img_byte_arr)
                 except Exception as e:
-                    logger.error(f"处理文件时出错: {str(e)}")
+                    logger.error(f"读取文件时出错: {str(e)}")
                     continue
+            
+            if image_data_list:
+                # 批量处理所有图片
+                result = processor.process_multiple_images(image_data_list, stream=False)
+                
+                if "error" in result:
+                    logger.error(result["error"])
+                    return
+                
+                # 解析并打印分析结果
+                analysis_data = parse_analysis_result(result["analysis_result"])
+                print_analysis_result(analysis_data)
+                
+                # 保存结果
+                result["parsed_analysis"] = analysis_data
+                save_result(result, "output", "json")
+            else:
+                logger.error("没有成功读取任何文件")
         else:
             logger.info("input文件夹中没有找到文件，切换到URL输入模式")
             image_url = get_image_url()

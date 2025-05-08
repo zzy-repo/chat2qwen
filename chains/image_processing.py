@@ -1,6 +1,6 @@
 import base64
 from pathlib import Path
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, List
 import logging
 import requests
 from langchain_core.output_parsers import StrOutputParser
@@ -101,7 +101,7 @@ class ImageProcessingChain:
         
     def process_image(self, image_data: Union[str, bytes, io.BytesIO], stream: bool = False) -> Dict[str, Any]:
         """
-        处理图片
+        处理单张图片
         
         Args:
             image_data: 图片URL、二进制数据或BytesIO对象
@@ -164,5 +164,69 @@ class ImageProcessingChain:
             return {
                 "status": "error",
                 "image_url": image_data if isinstance(image_data, str) else None,
+                "error": str(e)
+            }
+
+    def process_multiple_images(self, image_data_list: List[Union[str, bytes, io.BytesIO]], stream: bool = False) -> Dict[str, Any]:
+        """
+        批量处理多张图片
+        
+        Args:
+            image_data_list: 图片数据列表，每个元素可以是URL、二进制数据或BytesIO对象
+            stream: 是否使用流式输出
+            
+        Returns:
+            Dict[str, Any]: 处理结果
+        """
+        try:
+            if self.debug:
+                logger.info(f"开始批量处理 {len(image_data_list)} 张图片")
+
+            # 处理所有图片
+            all_recognition_results = []
+            for i, image_data in enumerate(image_data_list, 1):
+                if self.debug:
+                    logger.info(f"正在处理第 {i}/{len(image_data_list)} 张图片")
+                
+                # 处理单张图片
+                result = self.process_image(image_data, stream)
+                if result["status"] == "error":
+                    logger.error(f"处理第 {i} 张图片时出错: {result['error']}")
+                    continue
+                    
+                all_recognition_results.append(result["recognition_result"])
+
+            if not all_recognition_results:
+                raise ValueError("没有成功处理任何图片")
+
+            # 合并所有识别结果
+            combined_recognition = "\n\n=== 图片 {} ===\n{}".format(
+                "、".join(str(i+1) for i in range(len(all_recognition_results))),
+                "\n\n".join(all_recognition_results)
+            )
+
+            # 创建分析链
+            analysis_chain = self._create_analysis_chain()
+            
+            # 执行分析
+            analysis_response = analysis_chain.invoke({"recognition_result": combined_recognition})
+            analysis_result = analysis_response.content if hasattr(analysis_response, 'content') else analysis_response
+            
+            if self.debug:
+                logger.info("批量分析完成")
+                
+            # 返回结果
+            return {
+                "status": "success",
+                "image_count": len(image_data_list),
+                "recognition_result": combined_recognition,
+                "analysis_result": analysis_result
+            }
+            
+        except Exception as e:
+            error_msg = f"批量处理图片时出现错误: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "status": "error",
                 "error": str(e)
             } 
