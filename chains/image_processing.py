@@ -70,28 +70,57 @@ class ImageProcessingChain:
             
     def _create_recognition_chain(self):
         """创建识别链"""
+        def create_messages(x):
+            human_messages = []
+            # 添加所有图片
+            for img in x["images"]:
+                human_messages.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{img}"}
+                })
+            # 添加文本提示
+            human_messages.append({
+                "type": "text",
+                "text": IMAGE_RECOGNITION_TEMPLATE
+            })
+            messages = [
+                SystemMessage(content="你是一个专业的图像分析助手，擅长详细描述图像内容。"),
+                HumanMessage(content=human_messages)
+            ]
+            # 记录输入提示到日志文件
+            logger.debug("=== 图像识别输入提示 ===")
+            logger.debug(f"系统提示: {messages[0].content}")
+            logger.debug(f"用户提示: {IMAGE_RECOGNITION_TEMPLATE}")
+            return messages
+
         return (
             RunnablePassthrough.assign(
-                image=lambda x: self._encode_image(x["image_data"])
+                images=lambda x: [self._encode_image(img) for img in x["image_data_list"]]
             )
-            | ChatPromptTemplate.from_messages([
-                ("system", "你是一个专业的图像分析助手，擅长详细描述图像内容。"),
-                ("human", [
-                    {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,{image}"}},
-                    {"type": "text", "text": IMAGE_RECOGNITION_TEMPLATE}
-                ])
-            ])
+            | create_messages
             | self.recognition_model
             | self.output_parser
         )
         
     def _create_analysis_chain(self):
         """创建分析链"""
+        def create_messages(x):
+            messages = [
+                SystemMessage(content="你是一个专业的数据分析助手，擅长从文本中提取结构化信息。"),
+                HumanMessage(content=ANALYSIS_TEMPLATE.format(recognition_result=x["recognition_result"]))
+            ]
+            # 记录输入提示到日志文件
+            logger.debug("=== 数据分析输入提示 ===")
+            logger.debug(f"系统提示: {messages[0].content}")
+            logger.debug(f"用户提示: {ANALYSIS_TEMPLATE}")
+            logger.debug(f"识别结果: {x['recognition_result']}")
+            return messages
+
         return (
             RunnablePassthrough.assign(
                 recognition_result=lambda x: x["recognition_result"]
             )
-            | ChatPromptTemplate.from_template(ANALYSIS_TEMPLATE)
+            | create_messages
             | self.analysis_model
             | self.output_parser
         )
@@ -132,7 +161,7 @@ class ImageProcessingChain:
             
             # 执行识别
             logger.info("正在进行图片识别...")
-            recognition_response = recognition_chain.invoke({"image_data": image_bytes})
+            recognition_response = recognition_chain.invoke({"image_data_list": [image_bytes]})
             recognition_result = recognition_response.content if hasattr(recognition_response, 'content') else recognition_response
             
             if self.debug:
@@ -180,36 +209,58 @@ class ImageProcessingChain:
             if self.debug:
                 logger.info(f"开始批量处理 {len(image_data_list)} 张图片")
 
-            # 处理所有图片
-            all_recognition_results = []
+            # 处理所有图片数据
+            processed_images = []
             for i, image_data in enumerate(image_data_list, 1):
                 if self.debug:
-                    logger.info(f"正在处理第 {i}/{len(image_data_list)} 张图片")
+                    logger.info(f"正在准备第 {i}/{len(image_data_list)} 张图片")
                 
-                # 处理单张图片
-                result = self.process_image(image_data, stream)
-                if result["status"] == "error":
-                    logger.error(f"处理第 {i} 张图片时出错: {result['error']}")
-                    continue
-                    
-                all_recognition_results.append(result["recognition_result"])
+                # 处理不同类型的输入
+                if isinstance(image_data, str):
+                    # 如果是URL，下载图片
+                    if image_data.startswith(('http://', 'https://', 'file://')):
+                        image_bytes = self._download_image(image_data)
+                    else:
+                        raise ValueError(f"不支持的URL格式: {image_data}")
+                elif isinstance(image_data, io.BytesIO):
+                    # 如果是BytesIO对象，获取其值
+                    image_bytes = image_data.getvalue()
+                elif isinstance(image_data, bytes):
+                    # 如果已经是字节数据，直接使用
+                    image_bytes = image_data
+                else:
+                    raise ValueError(f"不支持的图片数据类型: {type(image_data)}")
+                
+                processed_images.append(image_bytes)
 
-            if not all_recognition_results:
+            if not processed_images:
                 raise ValueError("没有成功处理任何图片")
 
-            # 合并所有识别结果
-            combined_recognition = "\n\n=== 图片 {} ===\n{}".format(
-                "、".join(str(i+1) for i in range(len(all_recognition_results))),
-                "\n\n".join(all_recognition_results)
-            )
-
+            # 创建识别链
+            recognition_chain = self._create_recognition_chain()
+            
+            # 执行识别
+            logger.info("正在进行图片识别...")
+            recognition_response = recognition_chain.invoke({"image_data_list": processed_images})
+            recognition_result = recognition_response.content if hasattr(recognition_response, 'content') else recognition_response
+            
+            # 记录识别结果到日志文件
+            logger.debug("=== 图像识别输出结果 ===")
+            logger.debug(recognition_result)
+            
+            if self.debug:
+                logger.info("图片识别完成，正在进行文字处理...")
+                
             # 创建分析链
             analysis_chain = self._create_analysis_chain()
             
             # 执行分析
-            logger.info("所有图片识别完成，正在进行文字处理...")
-            analysis_response = analysis_chain.invoke({"recognition_result": combined_recognition})
+            analysis_response = analysis_chain.invoke({"recognition_result": recognition_result})
             analysis_result = analysis_response.content if hasattr(analysis_response, 'content') else analysis_response
+            
+            # 记录分析结果到日志文件
+            logger.debug("=== 数据分析输出结果 ===")
+            logger.debug(analysis_result)
             
             if self.debug:
                 logger.info("批量分析完成")
@@ -218,7 +269,7 @@ class ImageProcessingChain:
             return {
                 "status": "success",
                 "image_count": len(image_data_list),
-                "recognition_result": combined_recognition,
+                "recognition_result": recognition_result,
                 "analysis_result": analysis_result
             }
             

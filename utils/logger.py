@@ -22,7 +22,7 @@ def setup_logger(name: str = None) -> logging.Logger:
     """
     # 创建日志记录器
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     
     # 如果已经有处理器，说明已经配置过，直接返回
     if logger.handlers:
@@ -42,7 +42,7 @@ def setup_logger(name: str = None) -> logging.Logger:
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, f"app_{datetime.now().strftime('%Y%m%d')}.log")
     file_handler = logging.FileHandler(log_file, encoding='utf-8')
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.DEBUG)
     file_formatter = CustomFormatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
