@@ -8,3 +8,4 @@ output/*
 /logs
 /dist
 /chat2table.egg-info
+__pycache__
