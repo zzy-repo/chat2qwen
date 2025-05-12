@@ -88,7 +88,7 @@ class ModelConfig:
                 model_name=self.analysis_model,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens
-            )
+            ) 
         except Exception as e:
             logger.error(f"创建分析模型失败: {str(e)}")
             raise ConfigError(f"创建分析模型失败: {str(e)}") 

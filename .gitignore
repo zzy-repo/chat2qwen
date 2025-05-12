@@ -9,3 +9,4 @@ output/*
 /dist
 */chat2table.egg-info
 __pycache__
+/build

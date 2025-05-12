@@ -9,9 +9,13 @@ import time
 from dotenv import load_dotenv
 import io
 
-from src.models.config import ModelConfig
-from src.chains.image_processing import ImageProcessingChain
-from src.utils.logger import logger
+# from src.chat2table.models.config import ModelConfig
+# from src.chat2table.chains.image_processing import ImageProcessingChain
+# from src.chat2table.utils.logger import logger
+
+from chat2table.models.config import ModelConfig
+from chat2table.chains.image_processing import ImageProcessingChain
+from chat2table.utils.logger import logger
 
 def get_api_key() -> str:
     """从环境变量获取API密钥"""
