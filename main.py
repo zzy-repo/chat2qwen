@@ -8,9 +8,6 @@ import io
 from PIL import Image
 import traceback
 import time
-import argparse
-import sys
-import base64
 
 from models.config import ModelConfig
 from chains.image_processing import ImageProcessingChain
@@ -230,76 +227,9 @@ def process_local_image(processor: ImageProcessingChain, image_data: Union[str, 
             "recognition_result": "处理失败"
         }
 
-def process_image(processor: ImageProcessingChain, image_data: Union[str, bytes], stream: bool = False) -> Dict[str, Any]:
-    """
-    处理图片数据
-    
-    Args:
-        processor: 图像处理器实例
-        image_data: 图片URL或图片二进制数据
-        stream: 是否使用流式输出
-        
-    Returns:
-        Dict[str, Any]: 处理结果
-    """
-    try:
-        if isinstance(image_data, str):
-            # 处理URL
-            if image_data.startswith(('http://', 'https://')):
-                result = processor.process_image(image_data, stream=stream)
-            else:
-                # 处理base64编码的图片数据
-                try:
-                    image_bytes = base64.b64decode(image_data)
-                    result = processor.process_image(image_bytes, stream=stream)
-                except Exception as e:
-                    raise ValueError(f"无效的图片数据格式: {str(e)}")
-        else:
-            # 处理二进制数据
-            result = processor.process_image(image_data, stream=stream)
-        
-        if not result or result.get("status") == "error":
-            error_msg = result.get("error", "图片处理失败，未获得有效结果")
-            raise ValueError(error_msg)
-        
-        return result
-    except Exception as e:
-        error_msg = f"处理图片失败: {str(e)}"
-        logger.error(error_msg)
-        return {
-            "status": "error",
-            "error": error_msg,
-            "analysis_result": "处理失败",
-            "recognition_result": "处理失败"
-        }
-
 def main():
     """主函数"""
     try:
-        # 解析命令行参数
-        parser = argparse.ArgumentParser(
-            description='图片分析工具',
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog="""
-示例：
-  # 处理在线图片
-  python main.py --url "https://example.com/image.jpg"
-  
-  # 处理Base64编码的图片
-  python main.py --image "base64_encoded_image_data"
-  
-  # 使用流式输出
-  python main.py --url "https://example.com/image.jpg" --stream
-  
-  # 从标准输入读取
-  echo "https://example.com/image.jpg" | python main.py
-  """
-        )
-        parser.add_argument('--url', type=str, help='指定图片URL（http/https）')
-        parser.add_argument('--image', type=str, help='指定Base64编码的图片数据')
-        parser.add_argument('--stream', action='store_true', help='启用流式输出模式')
-        args = parser.parse_args()
-
         # 获取API密钥
         api_key = get_api_key()
         
@@ -314,28 +244,66 @@ def main():
         # 初始化图像处理链
         processor = ImageProcessingChain(config, debug=True)
         
-        # 处理输入
-        if args.url:
-            result = process_image(processor, args.url, stream=args.stream)
-        elif args.image:
-            result = process_image(processor, args.image, stream=args.stream)
-        else:
-            # 从标准输入读取图片数据
-            print("请输入图片URL或Base64编码的图片数据（输入完成后按Ctrl+D结束）：")
-            image_data = sys.stdin.read().strip()
-            if image_data.startswith(('http://', 'https://')):
-                result = process_image(processor, image_data, stream=args.stream)
+        # 获取input文件夹中的文件
+        input_files = get_input_files()
+        
+        if input_files:
+            logger.info(f"在input文件夹中找到 {len(input_files)} 个文件")
+            
+            # 收集所有图片数据
+            image_data_list = []
+            for image_data, page_number in input_files:
+                try:
+                    if isinstance(image_data, str):
+                        logger.info(f"正在读取文件: {image_data}")
+                        with open(image_data, 'rb') as f:
+                            image_bytes = f.read()
+                        image_data_list.append(image_bytes)
+                    else:
+                        logger.info(f"正在读取PDF第 {page_number} 页")
+                        img_byte_arr = io.BytesIO()
+                        image_data.save(img_byte_arr, format='PNG')
+                        img_byte_arr.seek(0)
+                        image_data_list.append(img_byte_arr)
+                except Exception as e:
+                    logger.error(f"读取文件时出错: {str(e)}")
+                    continue
+            
+            if image_data_list:
+                # 批量处理所有图片
+                logger.info(f"已成功读取 {len(image_data_list)} 个文件，正在统一打包给大模型进行分析...")
+                result = processor.process_multiple_images(image_data_list, stream=False)
+                
+                if "error" in result:
+                    logger.error(result["error"])
+                    return
+                
+                # 解析并打印分析结果
+                analysis_data = parse_analysis_result(result["analysis_result"])
+                print_analysis_result(analysis_data)
+                
+                # 保存结果
+                result["parsed_analysis"] = analysis_data
+                save_result(result, "output", "json")
             else:
-                result = process_image(processor, image_data, stream=args.stream)
-        
-        if "error" in result:
-            logger.error(result["error"])
-            return
-        
-        # 解析并打印分析结果
-        analysis_data = parse_analysis_result(result["analysis_result"])
-        print_analysis_result(analysis_data)
-        
+                logger.error("没有成功读取任何文件")
+        else:
+            logger.info("input文件夹中没有找到文件，切换到URL输入模式")
+            image_url = get_image_url()
+            result = process_local_image(processor, image_url, stream=False)
+            
+            if "error" in result:
+                logger.error(result["error"])
+                return
+            
+            # 解析并打印分析结果
+            analysis_data = parse_analysis_result(result["analysis_result"])
+            print_analysis_result(analysis_data)
+            
+            # 保存结果
+            result["parsed_analysis"] = analysis_data
+            save_result(result, "output", "json")
+            
     except Exception as e:
         logger.error(f"程序执行失败: {str(e)}")
         if config.debug:
