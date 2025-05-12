@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from datetime import datetime
 
 class CustomFormatter(logging.Formatter):
@@ -36,22 +37,24 @@ def setup_logger(name: str = None) -> logging.Logger:
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     console_handler.setFormatter(console_formatter)
-    
-    # 创建文件处理器
-    log_dir = "logs"
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f"app_{datetime.now().strftime('%Y%m%d')}.log")
-    file_handler = logging.FileHandler(log_file, encoding='utf-8')
-    file_handler.setLevel(logging.DEBUG)
-    file_formatter = CustomFormatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    file_handler.setFormatter(file_formatter)
-    
-    # 添加处理器到记录器
     logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
+    
+    # 检查是否是作为独立项目运行
+    is_standalone = __package__ is None or __package__ == ""
+    
+    # 只有在作为独立项目运行时才创建日志文件
+    if is_standalone:
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, f"app_{datetime.now().strftime('%Y%m%d')}.log")
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG)
+        file_formatter = CustomFormatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
     
     return logger
 

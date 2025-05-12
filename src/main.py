@@ -21,5 +21,4 @@ def get_processor(api_key: str) -> ImageProcessingChain:
     config = ModelConfig(api_key=api_key)
     return ImageProcessingChain(config)
 
-# TODO: 添加更多工具函数和类 
 
