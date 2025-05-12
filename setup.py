@@ -3,7 +3,8 @@ from setuptools import setup, find_packages
 setup(
     name="chat2table",
     version="0.1.0",
-    packages=find_packages(),
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
     install_requires=[
         "python-dotenv>=1.1.0",
         "openai>=1.76.0",
@@ -16,7 +17,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "chat2table=main:main",
+            "chat2table=src.main:main",
         ],
     },
 ) 

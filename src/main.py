@@ -8,10 +8,13 @@ import io
 from PIL import Image
 import traceback
 import time
+import argparse
+import sys
+import base64
 
-from models.config import ModelConfig
-from chains.image_processing import ImageProcessingChain
-from utils.logger import logger
+from .models.config import ModelConfig
+from .chains.image_processing import ImageProcessingChain
+from .utils.logger import logger
 
 def get_api_key() -> str:
     """

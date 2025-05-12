@@ -7,5 +7,5 @@ output/*
 /backup
 /logs
 /dist
-/chat2table.egg-info
+*/chat2table.egg-info
 __pycache__
