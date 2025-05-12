@@ -7,11 +7,12 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 import io
+from PIL import Image
 
-from models.config import ModelConfig
-from prompts.image_recognition import IMAGE_RECOGNITION_TEMPLATE
-from prompts.analysis import ANALYSIS_TEMPLATE
-from utils.logger import logger
+from ..models.config import ModelConfig
+from ..prompts.image_recognition import IMAGE_RECOGNITION_TEMPLATE
+from ..prompts.analysis import ANALYSIS_TEMPLATE
+from ..utils.logger import logger
 
 class ImageProcessingChain:
     """图像处理链"""
@@ -124,12 +125,39 @@ class ImageProcessingChain:
             | self.output_parser
         )
         
-    def process_image(self, image_data: Union[str, bytes, io.BytesIO], stream: bool = False) -> Dict[str, Any]:
+    def _convert_to_bytes(self, image_data: Union[str, bytes, io.BytesIO, Image.Image]) -> bytes:
+        """
+        将不同类型的图片数据转换为字节数据
+        
+        Args:
+            image_data: 图片数据，可以是URL、二进制数据、BytesIO对象或PIL.Image对象
+            
+        Returns:
+            bytes: 图片二进制数据
+        """
+        if isinstance(image_data, str):
+            if image_data.startswith(('http://', 'https://', 'file://')):
+                return self._download_image(image_data)
+            else:
+                raise ValueError(f"不支持的URL格式: {image_data}")
+        elif isinstance(image_data, io.BytesIO):
+            return image_data.getvalue()
+        elif isinstance(image_data, bytes):
+            return image_data
+        elif isinstance(image_data, Image.Image):
+            # 将PIL.Image转换为字节数据
+            img_byte_arr = io.BytesIO()
+            image_data.save(img_byte_arr, format='JPEG')
+            return img_byte_arr.getvalue()
+        else:
+            raise ValueError(f"不支持的图片数据类型: {type(image_data)}")
+        
+    def process_image(self, image_data: Union[str, bytes, io.BytesIO, Image.Image], stream: bool = False) -> Dict[str, Any]:
         """
         处理单张图片
         
         Args:
-            image_data: 图片URL、二进制数据或BytesIO对象
+            image_data: 图片URL、二进制数据、BytesIO对象或PIL.Image对象
             stream: 是否使用流式输出
             
         Returns:
@@ -139,21 +167,8 @@ class ImageProcessingChain:
             if self.debug:
                 logger.info(f"开始处理图片: {image_data if isinstance(image_data, str) else '<binary data>'}")
 
-            # 处理不同类型的输入
-            if isinstance(image_data, str):
-                # 如果是URL，下载图片
-                if image_data.startswith(('http://', 'https://', 'file://')):
-                    image_bytes = self._download_image(image_data)
-                else:
-                    raise ValueError(f"不支持的URL格式: {image_data}")
-            elif isinstance(image_data, io.BytesIO):
-                # 如果是BytesIO对象，获取其值
-                image_bytes = image_data.getvalue()
-            elif isinstance(image_data, bytes):
-                # 如果已经是字节数据，直接使用
-                image_bytes = image_data
-            else:
-                raise ValueError(f"不支持的图片数据类型: {type(image_data)}")
+            # 转换图片数据为字节
+            image_bytes = self._convert_to_bytes(image_data)
             
             # 创建识别链
             recognition_chain = self._create_recognition_chain()
@@ -193,12 +208,12 @@ class ImageProcessingChain:
                 "error": str(e)
             }
 
-    def process_multiple_images(self, image_data_list: List[Union[str, bytes, io.BytesIO]], stream: bool = False) -> Dict[str, Any]:
+    def process_multiple_images(self, image_data_list: List[Union[str, bytes, io.BytesIO, Image.Image]], stream: bool = False) -> Dict[str, Any]:
         """
         批量处理多张图片
         
         Args:
-            image_data_list: 图片数据列表，每个元素可以是URL、二进制数据或BytesIO对象
+            image_data_list: 图片数据列表，每个元素可以是URL、二进制数据、BytesIO对象或PIL.Image对象
             stream: 是否使用流式输出
             
         Returns:
@@ -214,22 +229,8 @@ class ImageProcessingChain:
                 if self.debug:
                     logger.info(f"正在准备第 {i}/{len(image_data_list)} 张图片")
                 
-                # 处理不同类型的输入
-                if isinstance(image_data, str):
-                    # 如果是URL，下载图片
-                    if image_data.startswith(('http://', 'https://', 'file://')):
-                        image_bytes = self._download_image(image_data)
-                    else:
-                        raise ValueError(f"不支持的URL格式: {image_data}")
-                elif isinstance(image_data, io.BytesIO):
-                    # 如果是BytesIO对象，获取其值
-                    image_bytes = image_data.getvalue()
-                elif isinstance(image_data, bytes):
-                    # 如果已经是字节数据，直接使用
-                    image_bytes = image_data
-                else:
-                    raise ValueError(f"不支持的图片数据类型: {type(image_data)}")
-                
+                # 转换图片数据为字节
+                image_bytes = self._convert_to_bytes(image_data)
                 processed_images.append(image_bytes)
 
             if not processed_images:
